@@ -60,7 +60,6 @@ import {
   EVENT_EXTENSION_DISABLE,
   EVENT_EXTENSION_INSTALL,
   EVENT_EXTENSION_UNINSTALL,
-  EVENT_GEN_AI_EVALUATION_RESULT,
   EVENT_TOOL_OUTPUT_TRUNCATED,
   EVENT_AGENT_START,
   EVENT_AGENT_FINISH,
@@ -251,14 +250,8 @@ describe('loggers', () => {
         AuthType.USE_VERTEX_AI,
         'test-prompt',
       );
-      const model_config = {
-        model: 'gemini-pro',
-        temperature: 0.5,
-        top_p: 0.9,
-        top_k: 10,
-      };
 
-      logUserPrompt(mockConfig, event, model_config);
+      logUserPrompt(mockConfig, event);
 
       expect(mockLogger.emit).toHaveBeenCalledWith({
         body: 'User prompt. Length: 11.',
@@ -290,14 +283,8 @@ describe('loggers', () => {
         AuthType.CLOUD_SHELL,
         'test-prompt',
       );
-      const model_config = {
-        model: 'gemini-pro',
-        temperature: 0.5,
-        top_p: 0.9,
-        top_k: 10,
-      };
 
-      logUserPrompt(mockConfig, event, model_config);
+      logUserPrompt(mockConfig, event);
 
       expect(mockLogger.emit).toHaveBeenCalledWith({
         body: 'User prompt. Length: 11.',
@@ -311,44 +298,6 @@ describe('loggers', () => {
           prompt_id: 'prompt-id-9',
           auth_type: 'cloud-shell',
         },
-      });
-    });
-
-    it('should log both original and semantic events when options are provided', () => {
-      const event = new UserPromptEvent(
-        11,
-        'prompt-id-10',
-        AuthType.USE_VERTEX_AI,
-        'test-prompt',
-      );
-      const model_config = {
-        model: 'gemini-pro',
-        temperature: 0.5,
-        top_p: 0.9,
-        top_k: 10,
-      };
-
-      logUserPrompt(mockConfig, event, model_config);
-
-      // Check for original event
-      expect(mockLogger.emit).toHaveBeenCalledWith({
-        body: 'User prompt. Length: 11.',
-        attributes: expect.objectContaining({
-          'event.name': EVENT_USER_PROMPT,
-          prompt_id: 'prompt-id-10',
-        }),
-      });
-
-      // Check for new semantic event
-      expect(mockLogger.emit).toHaveBeenCalledWith({
-        body: 'GenAI operation details for model gemini-pro.',
-        attributes: expect.objectContaining({
-          'event.name': 'gen_ai.client.inference.operation.details',
-          'gen_ai.request.model': 'gemini-pro',
-          'gen_ai.request.temperature': 0.5,
-          'gen_ai.request.top_p': 0.9,
-          'gen_ai.request.top_k': 10,
-        }),
       });
     });
   });
@@ -397,12 +346,32 @@ describe('loggers', () => {
         'test-model',
         100,
         'prompt-id-1',
+        {
+          model: 'test-model',
+          temperature: 1,
+          top_p: 1,
+          top_k: 1,
+        },
+        {
+          prompt: '',
+          prompt_length: 0,
+        },
+        {
+          finish_reason: 'STOP',
+          response_id: '',
+          input_token_count: 17,
+          output_token_count: 50,
+          cached_content_token_count: 10,
+          thoughts_token_count: 5,
+          tool_token_count: 2,
+          total_token_count: 0,
+        },
         AuthType.LOGIN_WITH_GOOGLE,
         usageData,
         'test-response',
       );
 
-      logApiResponse(mockConfig, event, 'STOP');
+      logApiResponse(mockConfig, event);
 
       // Check for original event
       expect(mockLogger.emit).toHaveBeenCalledWith({
@@ -482,15 +451,30 @@ describe('loggers', () => {
         'test-model',
         100,
         'prompt-id-1',
+        {
+          model: 'test-model',
+          temperature: 0.8,
+          top_p: 0.9,
+          top_k: 40,
+        },
+        {
+          prompt: '',
+          prompt_length: 0,
+        },
+        {
+          finish_reason: 'STOP',
+          response_id: '',
+          input_token_count: 17,
+          output_token_count: 50,
+          cached_content_token_count: 10,
+          thoughts_token_count: 5,
+          tool_token_count: 2,
+          total_token_count: 0,
+        },
         AuthType.LOGIN_WITH_GOOGLE,
       );
-      const generationConfig: GenerateContentConfig = {
-        temperature: 0.8,
-        topP: 0.9,
-        topK: 40,
-      };
 
-      logApiResponse(mockConfig, event, 'STOP', generationConfig);
+      logApiResponse(mockConfig, event);
 
       // Check for new semantic event
       expect(mockLogger.emit).toHaveBeenCalledWith({
@@ -1698,36 +1682,4 @@ describe('loggers', () => {
     });
   });
 
-  describe('logGenAiEvaluationResult', () => {
-    const mockConfig = {
-      getSessionId: () => 'test-session-id',
-      getUsageStatisticsEnabled: () => true,
-    } as unknown as Config;
-
-    it('should log a GenAI evaluation result event', () => {
-      const details = {
-        response_id: 'response-123',
-        score: 0.9,
-        label: 'good',
-        explanation: 'The response was helpful.',
-      };
-
-      logGenAiEvaluationResult(mockConfig, details);
-
-      expect(mockLogger.emit).toHaveBeenCalledWith({
-        body: 'GenAI evaluation result for response response-123.',
-        attributes: {
-          'session.id': 'test-session-id',
-          'user.email': 'test-user@example.com',
-          'installation.id': 'test-installation-id',
-          'event.name': EVENT_GEN_AI_EVALUATION_RESULT,
-          'event.timestamp': '2025-01-01T00:00:00.000Z',
-          'gen_ai.response.id': 'response-123',
-          'gen_ai.evaluation.score.value': 0.9,
-          'gen_ai.evaluation.score.label': 'good',
-          'gen_ai.evaluation.explanation': 'The response was helpful.',
-        },
-      });
-    });
-  });
 });

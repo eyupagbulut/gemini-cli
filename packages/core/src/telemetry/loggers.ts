@@ -51,10 +51,6 @@ import type {
   ExtensionUpdateEvent,
 } from './types.js';
 import {
-  GenAiOperationDetailsEvent,
-  GenAiEvaluationResultEvent,
-} from './types.js';
-import {
   recordApiErrorMetrics,
   recordToolCallMetrics,
   recordChatCompressionMetrics,
@@ -93,7 +89,6 @@ export function logCliConfiguration(
 export function logUserPrompt(
   config: Config,
   event: UserPromptEvent,
-  model_config: GenAIModelConfig,
 ): void {
   ClearcutLogger.getInstance(config)?.logNewPromptEvent(event);
   if (!isTelemetrySdkInitialized()) return;
@@ -106,17 +101,6 @@ export function logUserPrompt(
     attributes: event.toOpenTelemetryAttributes(config),
   };
   logger.emit(originalLogRecord);
-
-  // Emit the new semantic convention event
-  const semanticEvent = new GenAiOperationDetailsEvent(model_config, {
-    prompt: event.prompt,
-    prompt_length: event.prompt_length,
-  });
-  const semanticLogRecord: LogRecord = {
-    body: semanticEvent.toLogBody(),
-    attributes: semanticEvent.toOpenTelemetryAttributes(config),
-  };
-  logger.emit(semanticLogRecord);
 }
 
 export function logToolCall(config: Config, event: ToolCallEvent): void {
@@ -268,8 +252,6 @@ export function logApiError(config: Config, event: ApiErrorEvent): void {
 export function logApiResponse(
   config: Config,
   event: ApiResponseEvent,
-  finish_reason?: string,
-  generationConfig?: GenerateContentConfig,
 ): void {
   const uiEvent = {
     ...event,
@@ -281,11 +263,8 @@ export function logApiResponse(
   if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
-  const logRecord: LogRecord = {
-    body: event.toLogBody(),
-    attributes: event.toOpenTelemetryAttributes(config),
-  };
-  logger.emit(logRecord);
+  logger.emit(event.toLogRecord(config));
+  logger.emit(event.toSemanticLogRecord(config));
 
   const conventionAttributes = getConventionAttributes(event);
 
@@ -310,33 +289,6 @@ export function logApiResponse(
       genAiAttributes: conventionAttributes,
     });
   }
-
-  const semanticEvent = new GenAiOperationDetailsEvent(
-    {
-      model: event.model,
-      temperature: generationConfig?.temperature,
-      top_p: generationConfig?.topP,
-      top_k: generationConfig?.topK,
-    },
-    {
-      prompt_length: 0, // Not available in response event
-    },
-    {
-      finish_reason,
-      response_id: event.prompt_id,
-      input_token_count: event.input_token_count,
-      output_token_count: event.output_token_count,
-      cached_content_token_count: event.cached_content_token_count,
-      thoughts_token_count: event.thoughts_token_count,
-      tool_token_count: event.tool_token_count,
-      total_token_count: event.total_token_count,
-    },
-  );
-  const semanticLogRecord: LogRecord = {
-    body: semanticEvent.toLogBody(),
-    attributes: semanticEvent.toOpenTelemetryAttributes(config),
-  };
-  logger.emit(semanticLogRecord);
 }
 
 export function logLoopDetected(
