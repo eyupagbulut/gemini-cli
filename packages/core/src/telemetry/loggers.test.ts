@@ -372,7 +372,7 @@ describe('loggers', () => {
 
       // Check for new semantic event
       expect(mockLogger.emit).toHaveBeenCalledWith({
-        body: 'GenAI operation details for model test-model.',
+        body: 'GenAI operation details from test-model. Status: 200. Duration: 100ms.',
         attributes: expect.objectContaining({
           'event.name': 'gen_ai.client.inference.operation.details',
           'gen_ai.response.finish_reason': 'STOP',
@@ -456,7 +456,7 @@ describe('loggers', () => {
 
       // Check for new semantic event
       expect(mockLogger.emit).toHaveBeenCalledWith({
-        body: 'GenAI operation details for model test-model.',
+        body: 'GenAI operation details from test-model. Status: 200. Duration: 100ms.',
         attributes: expect.objectContaining({
           'event.name': 'gen_ai.client.inference.operation.details',
           'gen_ai.response.finish_reason': 'STOP',

@@ -37,7 +37,7 @@ describe.skip('Interactive Mode', () => {
     await run.type('\r');
 
     const foundEvent = await rig.waitForTelemetryEvent(
-      'chat_compression',
+      'gemini_cli.chat_compression',
       90000,
     );
     expect(foundEvent, 'chat_compression telemetry event was not found').toBe(

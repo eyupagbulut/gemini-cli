@@ -76,28 +76,16 @@ export class LoggingContentGenerator implements ContentGenerator {
       new ApiResponseEvent(
         model,
         durationMs,
-        prompt_id,
         {
-          model,
+          prompt_id,
+          prompt: content_str,
           temperature: generationConfig?.temperature,
           top_p: generationConfig?.topP,
           top_k: generationConfig?.topK,
         },
         {
-          // TODO: make this content match expected format; maybe pass in raw?
-          // TODO: maybe don't pass in length cuz can infer
-          prompt: content_str,
-          prompt_length: content_str.length,
-        },
-        {
           finish_reason,
           response_id: responseId,
-          input_token_count: usageMetadata?.promptTokenCount,
-          output_token_count: usageMetadata?.candidatesTokenCount,
-          cached_content_token_count: usageMetadata?.cachedContentTokenCount,
-          thoughts_token_count: usageMetadata?.thoughtsTokenCount,
-          tool_token_count: usageMetadata?.toolUsePromptTokenCount,
-          total_token_count: usageMetadata?.totalTokenCount,
         },
         this.config.getContentGeneratorConfig()?.authType,
         usageMetadata,
@@ -176,19 +164,14 @@ export class LoggingContentGenerator implements ContentGenerator {
       throw error;
     }
 
-    return this.loggingStreamWrapper(
-      stream,
-      startTime,
-      userPromptId,
-      req.model,
-    );
+    return this.loggingStreamWrapper(req, stream, startTime, userPromptId);
   }
 
   private async *loggingStreamWrapper(
+    req: GenerateContentParameters,
     stream: AsyncGenerator<GenerateContentResponse>,
     startTime: number,
     userPromptId: string,
-    model: string,
   ): AsyncGenerator<GenerateContentResponse> {
     const responses: GenerateContentResponse[] = [];
 
@@ -207,21 +190,24 @@ export class LoggingContentGenerator implements ContentGenerator {
       }
       // Only log successful API response if no error occurred
       const durationMs = Date.now() - startTime;
+      const contents: Content[] = toContents(req.contents);
       this._logApiResponse(
+        contents,
         durationMs,
-        responses[0]?.modelVersion || model,
+        responses[0]?.modelVersion || req.model,
         userPromptId,
         responses[0]?.responseId,
         lastUsageMetadata,
         JSON.stringify(responses),
         finishReason,
+        req.config,
       );
     } catch (error) {
       const durationMs = Date.now() - startTime;
       this._logApiError(
         durationMs,
         error,
-        responses[0]?.modelVersion || model,
+        responses[0]?.modelVersion || req.model,
         userPromptId,
       );
       throw error;

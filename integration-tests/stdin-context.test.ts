@@ -18,7 +18,7 @@ describe.skip('stdin context', () => {
 
     const result = await rig.run({ prompt, stdin: stdinContent });
 
-    await rig.waitForTelemetryEvent('api_request');
+    await rig.waitForTelemetryEvent('gemini_cli.api_request');
     const lastRequest = rig.readLastApiRequest();
     expect(lastRequest).not.toBeNull();
 

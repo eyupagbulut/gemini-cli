@@ -558,7 +558,7 @@ export class TestRig {
         return logs.some(
           (logData) =>
             logData.attributes &&
-            logData.attributes['event.name'] === `gemini_cli.${eventName}`,
+            logData.attributes['event.name'] === eventName,
         );
       },
       timeout,

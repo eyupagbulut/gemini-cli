@@ -449,7 +449,6 @@ export async function main() {
     }
 
     const prompt_id = Math.random().toString(16).slice(2);
-    const model_config = config.getGeminiClient().getGenerateContentConfig();
     logUserPrompt(
       config,
       new UserPromptEvent(
@@ -458,12 +457,6 @@ export async function main() {
         config.getContentGeneratorConfig()?.authType,
         input,
       ),
-      {
-        model: config.getModel(),
-        temperature: model_config?.temperature,
-        top_p: model_config?.topP,
-        top_k: model_config?.topK,
-      },
     );
 
     const nonInteractiveConfig = await validateNonInteractiveAuth(

@@ -541,7 +541,7 @@ export class ApiResponseEvent implements BaseTelemetryEvent {
     }
 
     const logRecord: LogRecord = {
-      body: `GenAI operation details for model ${this.model}.`,
+      body: `GenAI operation details from ${this.model}. Status: ${this.status_code || 'N/A'}. Duration: ${this.duration_ms}ms.`,
       attributes,
     };
     return logRecord;
