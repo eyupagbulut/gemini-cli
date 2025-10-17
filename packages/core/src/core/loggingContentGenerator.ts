@@ -60,26 +60,49 @@ export class LoggingContentGenerator implements ContentGenerator {
   }
 
   private _logApiResponse(
+    contents: Content[],
     durationMs: number,
     model: string,
     prompt_id: string,
+    responseId: string | undefined,
     usageMetadata?: GenerateContentResponseUsageMetadata,
     responseText?: string,
     finish_reason?: string,
     generationConfig?: GenerateContentConfig,
   ): void {
+    const content_str: string = JSON.stringify(contents);
     logApiResponse(
       this.config,
       new ApiResponseEvent(
         model,
         durationMs,
         prompt_id,
+        {
+          model,
+          temperature: generationConfig?.temperature,
+          top_p: generationConfig?.topP,
+          top_k: generationConfig?.topK,
+        },
+        {
+          // TODO: make this content match expected format; maybe pass in raw?
+          // TODO: maybe don't pass in length cuz can infer
+          prompt: content_str,
+          prompt_length: content_str.length,
+        },
+        {
+          finish_reason,
+          response_id: responseId,
+          input_token_count: usageMetadata?.promptTokenCount,
+          output_token_count: usageMetadata?.candidatesTokenCount,
+          cached_content_token_count: usageMetadata?.cachedContentTokenCount,
+          thoughts_token_count: usageMetadata?.thoughtsTokenCount,
+          tool_token_count: usageMetadata?.toolUsePromptTokenCount,
+          total_token_count: usageMetadata?.totalTokenCount,
+        },
         this.config.getContentGeneratorConfig()?.authType,
         usageMetadata,
         responseText,
       ),
-      finish_reason,
-      generationConfig,
     );
   }
 
@@ -113,14 +136,17 @@ export class LoggingContentGenerator implements ContentGenerator {
     userPromptId: string,
   ): Promise<GenerateContentResponse> {
     const startTime = Date.now();
+    const contents: Content[] = toContents(req.contents);
     this.logApiRequest(toContents(req.contents), req.model, userPromptId);
     try {
       const response = await this.wrapped.generateContent(req, userPromptId);
       const durationMs = Date.now() - startTime;
       this._logApiResponse(
+        contents,
         durationMs,
         response.modelVersion || req.model,
         userPromptId,
+        response.responseId,
         response.usageMetadata,
         JSON.stringify(response),
         response.candidates?.[0]?.finishReason,
@@ -185,6 +211,7 @@ export class LoggingContentGenerator implements ContentGenerator {
         durationMs,
         responses[0]?.modelVersion || model,
         userPromptId,
+        responses[0]?.responseId,
         lastUsageMetadata,
         JSON.stringify(responses),
         finishReason,

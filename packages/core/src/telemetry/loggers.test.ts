@@ -29,7 +29,6 @@ import {
   logToolCall,
   logFlashFallback,
   logChatCompression,
-  logGenAiEvaluationResult,
   logMalformedJsonResponse,
   logFileOperation,
   logRipgrepFallback,
@@ -96,7 +95,6 @@ import * as sdk from './sdk.js';
 import { vi, describe, beforeEach, it, expect, afterEach } from 'vitest';
 import type {
   CallableTool,
-  GenerateContentConfig,
   GenerateContentResponseUsageMetadata,
 } from '@google/genai';
 import { DiscoveredMCPTool } from '../tools/mcp-tool.js';
@@ -345,26 +343,16 @@ describe('loggers', () => {
       const event = new ApiResponseEvent(
         'test-model',
         100,
-        'prompt-id-1',
         {
-          model: 'test-model',
+          prompt_id: 'prompt-id-1',
+          prompt: '',
           temperature: 1,
           top_p: 1,
           top_k: 1,
         },
         {
-          prompt: '',
-          prompt_length: 0,
-        },
-        {
           finish_reason: 'STOP',
           response_id: '',
-          input_token_count: 17,
-          output_token_count: 50,
-          cached_content_token_count: 10,
-          thoughts_token_count: 5,
-          tool_token_count: 2,
-          total_token_count: 0,
         },
         AuthType.LOGIN_WITH_GOOGLE,
         usageData,
@@ -450,26 +438,16 @@ describe('loggers', () => {
       const event = new ApiResponseEvent(
         'test-model',
         100,
-        'prompt-id-1',
         {
-          model: 'test-model',
+          prompt: '',
+          prompt_id: 'prompt-id-1',
           temperature: 0.8,
           top_p: 0.9,
           top_k: 40,
         },
         {
-          prompt: '',
-          prompt_length: 0,
-        },
-        {
           finish_reason: 'STOP',
           response_id: '',
-          input_token_count: 17,
-          output_token_count: 50,
-          cached_content_token_count: 10,
-          thoughts_token_count: 5,
-          tool_token_count: 2,
-          total_token_count: 0,
         },
         AuthType.LOGIN_WITH_GOOGLE,
       );
@@ -1681,5 +1659,4 @@ describe('loggers', () => {
       });
     });
   });
-
 });

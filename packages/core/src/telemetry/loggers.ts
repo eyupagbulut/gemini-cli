@@ -18,7 +18,6 @@ import type {
   ApiRequestEvent,
   ApiResponseEvent,
   FileOperationEvent,
-  GenAIModelConfig,
   IdeConnectionEvent,
   StartSessionEvent,
   ToolCallEvent,
@@ -69,7 +68,6 @@ import { isTelemetrySdkInitialized } from './sdk.js';
 import type { UiEvent } from './uiTelemetry.js';
 import { uiTelemetryService } from './uiTelemetry.js';
 import { ClearcutLogger } from './clearcut-logger/clearcut-logger.js';
-import type { GenerateContentConfig } from '@google/genai';
 
 export function logCliConfiguration(
   config: Config,
@@ -86,21 +84,17 @@ export function logCliConfiguration(
   logger.emit(logRecord);
 }
 
-export function logUserPrompt(
-  config: Config,
-  event: UserPromptEvent,
-): void {
+export function logUserPrompt(config: Config, event: UserPromptEvent): void {
   ClearcutLogger.getInstance(config)?.logNewPromptEvent(event);
   if (!isTelemetrySdkInitialized()) return;
 
   const logger = logs.getLogger(SERVICE_NAME);
 
-  // Emit the original event
-  const originalLogRecord: LogRecord = {
+  const logRecord: LogRecord = {
     body: event.toLogBody(),
     attributes: event.toOpenTelemetryAttributes(config),
   };
-  logger.emit(originalLogRecord);
+  logger.emit(logRecord);
 }
 
 export function logToolCall(config: Config, event: ToolCallEvent): void {
@@ -249,10 +243,7 @@ export function logApiError(config: Config, event: ApiErrorEvent): void {
   });
 }
 
-export function logApiResponse(
-  config: Config,
-  event: ApiResponseEvent,
-): void {
+export function logApiResponse(config: Config, event: ApiResponseEvent): void {
   const uiEvent = {
     ...event,
     'event.name': EVENT_API_RESPONSE,
@@ -275,11 +266,11 @@ export function logApiResponse(
   });
 
   const tokenUsageData = [
-    { count: event.input_token_count, type: 'input' as const },
-    { count: event.output_token_count, type: 'output' as const },
-    { count: event.cached_content_token_count, type: 'cache' as const },
-    { count: event.thoughts_token_count, type: 'thought' as const },
-    { count: event.tool_token_count, type: 'tool' as const },
+    { count: event.usage.input_token_count, type: 'input' as const },
+    { count: event.usage.output_token_count, type: 'output' as const },
+    { count: event.usage.cached_content_token_count, type: 'cache' as const },
+    { count: event.usage.thoughts_token_count, type: 'thought' as const },
+    { count: event.usage.tool_token_count, type: 'tool' as const },
   ];
 
   for (const { count, type } of tokenUsageData) {
@@ -638,26 +629,6 @@ export function logAgentFinish(config: Config, event: AgentFinishEvent): void {
   logger.emit(logRecord);
 
   recordAgentRunMetrics(config, event);
-}
-
-export function logGenAiEvaluationResult(
-  config: Config,
-  details: {
-    response_id: string;
-    score: number;
-    label?: string;
-    explanation?: string;
-  },
-): void {
-  if (!isTelemetrySdkInitialized()) return;
-
-  const logger = logs.getLogger(SERVICE_NAME);
-  const event = new GenAiEvaluationResultEvent(details);
-  const logRecord: LogRecord = {
-    body: event.toLogBody(),
-    attributes: event.toOpenTelemetryAttributes(config),
-  };
-  logger.emit(logRecord);
 }
 
 export function logWebFetchFallbackAttempt(

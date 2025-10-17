@@ -405,22 +405,21 @@ export class ApiErrorEvent implements BaseTelemetryEvent {
   }
 }
 
-export interface GenAIModelConfig {
-  model: string;
-  temperature: number;
-  top_p: number;
-  top_k: number;
-}
-
 export interface GenAIPromptDetails {
-  // TODO: these are probably supposed to be parts? in a specific format?
+  prompt_id: string;
   prompt: string;
-  prompt_length: number;
+  // TODO: resovle all tehse optional (or not) attributes (loggingContentGenerator)
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
 }
 
 export interface GenAIResponseDetails {
-  finish_reason: string;
-  response_id: string;
+  finish_reason?: string;
+  response_id?: string;
+}
+
+export interface GenAIUsageDetails {
   input_token_count: number;
   output_token_count: number;
   cached_content_token_count: number;
@@ -436,28 +435,20 @@ export const EVENT_GEN_AI_OPERATION_DETAILS =
 export class ApiResponseEvent implements BaseTelemetryEvent {
   'event.name': 'api_response';
   'event.timestamp': string;
-  model: string;
   status_code?: number | string;
   duration_ms: number;
-  input_token_count: number;
-  output_token_count: number;
-  cached_content_token_count: number;
-  thoughts_token_count: number;
-  tool_token_count: number;
-  total_token_count: number;
   response_text?: string;
-  prompt_id: string;
   auth_type?: string;
 
-  model_config: GenAIModelConfig;
-  prompt_details: GenAIPromptDetails;
-  response_details: GenAIResponseDetails;
+  // getConventionAttributes assumes all Event objects have a model attribute
+  model: string;
+  prompt: GenAIPromptDetails;
+  response: GenAIResponseDetails;
+  usage: GenAIUsageDetails;
 
   constructor(
     model: string,
     duration_ms: number,
-    prompt_id: string,
-    model_config: GenAIModelConfig,
     prompt_details: GenAIPromptDetails,
     response_details: GenAIResponseDetails,
     auth_type?: string,
@@ -466,22 +457,23 @@ export class ApiResponseEvent implements BaseTelemetryEvent {
   ) {
     this['event.name'] = 'api_response';
     this['event.timestamp'] = new Date().toISOString();
-    this.model = model;
     this.duration_ms = duration_ms;
     this.status_code = 200;
-    this.input_token_count = usage_data?.promptTokenCount ?? 0;
-    this.output_token_count = usage_data?.candidatesTokenCount ?? 0;
-    this.cached_content_token_count = usage_data?.cachedContentTokenCount ?? 0;
-    this.thoughts_token_count = usage_data?.thoughtsTokenCount ?? 0;
-    this.tool_token_count = usage_data?.toolUsePromptTokenCount ?? 0;
-    this.total_token_count = usage_data?.totalTokenCount ?? 0;
+    // TODO: replace with response details once logging
     this.response_text = response_text;
-    this.prompt_id = prompt_id;
     this.auth_type = auth_type;
 
-    this.model_config = model_config;
-    this.prompt_details = prompt_details;
-    this.response_details = response_details;
+    this.model = model;
+    this.prompt = prompt_details;
+    this.response = response_details;
+    this.usage = {
+      input_token_count: usage_data?.promptTokenCount ?? 0,
+      output_token_count: usage_data?.candidatesTokenCount ?? 0,
+      cached_content_token_count: usage_data?.cachedContentTokenCount ?? 0,
+      thoughts_token_count: usage_data?.thoughtsTokenCount ?? 0,
+      tool_token_count: usage_data?.toolUsePromptTokenCount ?? 0,
+      total_token_count: usage_data?.totalTokenCount ?? 0,
+    };
   }
 
   toLogRecord(config: Config): LogRecord {
@@ -491,13 +483,13 @@ export class ApiResponseEvent implements BaseTelemetryEvent {
       'event.timestamp': this['event.timestamp'],
       model: this.model,
       duration_ms: this.duration_ms,
-      input_token_count: this.input_token_count,
-      output_token_count: this.output_token_count,
-      cached_content_token_count: this.cached_content_token_count,
-      thoughts_token_count: this.thoughts_token_count,
-      tool_token_count: this.tool_token_count,
-      total_token_count: this.total_token_count,
-      prompt_id: this.prompt_id,
+      input_token_count: this.usage.input_token_count,
+      output_token_count: this.usage.output_token_count,
+      cached_content_token_count: this.usage.cached_content_token_count,
+      thoughts_token_count: this.usage.thoughts_token_count,
+      tool_token_count: this.usage.tool_token_count,
+      total_token_count: this.usage.total_token_count,
+      prompt_id: this.prompt.prompt_id,
       auth_type: this.auth_type,
       status_code: this.status_code,
     };
@@ -511,52 +503,46 @@ export class ApiResponseEvent implements BaseTelemetryEvent {
     }
     const logRecord: LogRecord = {
       body: `API response from ${this.model}. Status: ${this.status_code || 'N/A'}. Duration: ${this.duration_ms}ms.`,
-      attributes: attributes,
+      attributes,
     };
     return logRecord;
   }
 
-  toSemanticLogRecord(config: Config) : LogRecord {
+  toSemanticLogRecord(config: Config): LogRecord {
     const attributes: LogAttributes = {
       ...getCommonAttributes(config),
       'event.name': EVENT_GEN_AI_OPERATION_DETAILS,
       // TODO: make sure this is correct format
       'event.timestamp': this['event.timestamp'],
-      'gen_ai.request.model': this.model_config.model,
+      'gen_ai.request.model': this.model,
       // TODO: what if null value is passed here - do i really need an if for each use?
-      'gen_ai.request.temperature': this.model_config.temperature,
-      'gen_ai.request.top_p': this.model_config.top_p,
-      'gen_ai.request.top_k': this.model_config.top_k,
+      'gen_ai.request.temperature': this.prompt.temperature,
+      'gen_ai.request.top_p': this.prompt.top_p,
+      'gen_ai.request.top_k': this.prompt.top_k,
     };
 
-    if (config.getTelemetryLogPromptsEnabled() && this.prompt_details?.prompt) {
-      attributes['gen_ai.request.prompt'] = this.prompt_details.prompt;
+    if (config.getTelemetryLogPromptsEnabled() && this.prompt?.prompt) {
+      attributes['gen_ai.request.prompt'] = this.prompt.prompt;
     }
-    if (this.prompt_details) {
-      attributes['gen_ai.request.prompt.length'] =
-        this.prompt_details.prompt_length;
+    if (this.prompt) {
+      attributes['gen_ai.request.prompt.length'] = this.prompt.prompt.length;
     }
-    if (this.response_details) {
-      attributes['gen_ai.response.finish_reason'] =
-        this.response_details.finish_reason;
-      attributes['gen_ai.response.id'] = this.response_details.response_id;
-      attributes['gen_ai.usage.input_tokens'] =
-        this.response_details.input_token_count;
-      attributes['gen_ai.usage.output_tokens'] =
-        this.response_details.output_token_count;
+    if (this.response) {
+      attributes['gen_ai.response.finish_reason'] = this.response.finish_reason;
+      attributes['gen_ai.response.id'] = this.response.response_id;
+      attributes['gen_ai.usage.input_tokens'] = this.usage.input_token_count;
+      attributes['gen_ai.usage.output_tokens'] = this.usage.output_token_count;
       attributes['gen_ai.usage.cached_content_tokens'] =
-        this.response_details.cached_content_token_count;
+        this.usage.cached_content_token_count;
       attributes['gen_ai.usage.thoughts_tokens'] =
-        this.response_details.thoughts_token_count;
-      attributes['gen_ai.usage.tool_tokens'] =
-        this.response_details.tool_token_count;
-      attributes['gen_ai.usage.total_tokens'] =
-        this.response_details.total_token_count;
+        this.usage.thoughts_token_count;
+      attributes['gen_ai.usage.tool_tokens'] = this.usage.tool_token_count;
+      attributes['gen_ai.usage.total_tokens'] = this.usage.total_token_count;
     }
 
     const logRecord: LogRecord = {
-      body: `GenAI operation details for model ${this.model_config.model}.`,
-      attributes: attributes,
+      body: `GenAI operation details for model ${this.model}.`,
+      attributes,
     };
     return logRecord;
   }
