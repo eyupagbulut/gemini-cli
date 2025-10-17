@@ -345,10 +345,15 @@ describe('loggers', () => {
         100,
         {
           prompt_id: 'prompt-id-1',
-          prompt: '',
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: 'Hello' }],
+            },
+          ],
           temperature: 1,
-          top_p: 1,
-          top_k: 1,
+          top_p: 2,
+          top_k: 3,
         },
         {
           finish_reason: 'STOP',
@@ -361,7 +366,6 @@ describe('loggers', () => {
 
       logApiResponse(mockConfig, event);
 
-      // Check for original event
       expect(mockLogger.emit).toHaveBeenCalledWith({
         body: 'API response from test-model. Status: 200. Duration: 100ms.',
         attributes: expect.objectContaining({
@@ -370,11 +374,16 @@ describe('loggers', () => {
         }),
       });
 
-      // Check for new semantic event
       expect(mockLogger.emit).toHaveBeenCalledWith({
         body: 'GenAI operation details from test-model. Status: 200. Duration: 100ms.',
         attributes: expect.objectContaining({
           'event.name': 'gen_ai.client.inference.operation.details',
+          'gen_ai.request.model': 'test-model',
+          'gen_ai.request.temperature': 1,
+          'gen_ai.request.top_p': 2,
+          'gen_ai.request.top_k': 3,
+          'gen_ai.input.messages':
+            '[{"role":"user","parts":[{"text":"Hello"}]}]',
           'gen_ai.response.finish_reason': 'STOP',
           'gen_ai.usage.input_tokens': 17,
           'gen_ai.usage.output_tokens': 50,

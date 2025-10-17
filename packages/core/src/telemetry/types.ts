@@ -4,7 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { GenerateContentResponseUsageMetadata } from '@google/genai';
+import type {
+  Content,
+  GenerateContentResponseUsageMetadata,
+} from '@google/genai';
 import type { Config } from '../config/config.js';
 import type { ApprovalMode } from '../config/config.js';
 import type { CompletedToolCall } from '../core/coreToolScheduler.js';
@@ -25,6 +28,7 @@ import type { AgentTerminateMode } from '../agents/types.js';
 import { getCommonAttributes } from './telemetryAttributes.js';
 import { SemanticAttributes } from '@opentelemetry/semantic-conventions';
 import { safeJsonStringify } from '../utils/safeJsonStringify.js';
+import { toSemanticMessage } from './semantic.js';
 
 export interface BaseTelemetryEvent {
   'event.name': string;
@@ -407,7 +411,7 @@ export class ApiErrorEvent implements BaseTelemetryEvent {
 
 export interface GenAIPromptDetails {
   prompt_id: string;
-  prompt: string;
+  contents: Content[];
   // TODO: resovle all tehse optional (or not) attributes (loggingContentGenerator)
   temperature?: number;
   top_p?: number;
@@ -521,23 +525,16 @@ export class ApiResponseEvent implements BaseTelemetryEvent {
       'gen_ai.request.top_k': this.prompt.top_k,
     };
 
-    if (config.getTelemetryLogPromptsEnabled() && this.prompt?.prompt) {
-      attributes['gen_ai.request.prompt'] = this.prompt.prompt;
-    }
-    if (this.prompt) {
-      attributes['gen_ai.request.prompt.length'] = this.prompt.prompt.length;
+    if (config.getTelemetryLogPromptsEnabled() && this.prompt.contents) {
+      attributes['gen_ai.input.messages'] = toSemanticMessage(
+        this.prompt.contents,
+      );
     }
     if (this.response) {
       attributes['gen_ai.response.finish_reason'] = this.response.finish_reason;
       attributes['gen_ai.response.id'] = this.response.response_id;
       attributes['gen_ai.usage.input_tokens'] = this.usage.input_token_count;
       attributes['gen_ai.usage.output_tokens'] = this.usage.output_token_count;
-      attributes['gen_ai.usage.cached_content_tokens'] =
-        this.usage.cached_content_token_count;
-      attributes['gen_ai.usage.thoughts_tokens'] =
-        this.usage.thoughts_token_count;
-      attributes['gen_ai.usage.tool_tokens'] = this.usage.tool_token_count;
-      attributes['gen_ai.usage.total_tokens'] = this.usage.total_token_count;
     }
 
     const logRecord: LogRecord = {

@@ -70,7 +70,6 @@ export class LoggingContentGenerator implements ContentGenerator {
     finish_reason?: string,
     generationConfig?: GenerateContentConfig,
   ): void {
-    const content_str: string = JSON.stringify(contents);
     logApiResponse(
       this.config,
       new ApiResponseEvent(
@@ -78,7 +77,7 @@ export class LoggingContentGenerator implements ContentGenerator {
         durationMs,
         {
           prompt_id,
-          prompt: content_str,
+          contents,
           temperature: generationConfig?.temperature,
           top_p: generationConfig?.topP,
           top_k: generationConfig?.topK,
